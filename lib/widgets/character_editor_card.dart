@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/character.dart';
+import '../services/sound_service.dart';
+import '../theme/app_surfaces.dart';
 import '../theme/app_theme.dart';
 import 'autosave_field.dart';
+import 'surfaces.dart';
 
 class CharacterEditorCard extends StatelessWidget {
   final BookCharacter character;
@@ -22,7 +25,10 @@ class CharacterEditorCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: context.semanticColors.surfaceRaised,
+        // Cartão aninhado dentro do cartão de seção: usa o gradiente de
+        // "chrome", mais discreto, para se ler como um nível abaixo em vez
+        // de competir com o cartão que o contém.
+        gradient: context.surfaces.chrome,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(color: context.semanticColors.border),
       ),
@@ -39,9 +45,11 @@ class CharacterEditorCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
               ),
-              IconButton(
+              AppIconButton(
+                icon: Icons.delete_outline,
                 tooltip: 'Excluir personagem',
-                icon: const Icon(Icons.delete_outline),
+                color: theme.colorScheme.error,
+                sound: UiSound.tap,
                 onPressed: onDelete,
               ),
             ],

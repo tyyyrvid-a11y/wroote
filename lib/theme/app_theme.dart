@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_surfaces.dart';
 
-/// Fontes: "Anthropic Sans" conduz a UI e os títulos; "Anthropic Serif"
+/// Fontes: "Source Sans 3" conduz a UI e os títulos; "Anthropic Serif"
 /// é reservada para o corpo do texto dentro do editor de escrita.
-const String kSansFontFamily = 'Anthropic Sans';
+const String kSansFontFamily = 'Source Sans 3';
 const String kSerifFontFamily = 'Anthropic Serif';
 
 class AppTheme {
@@ -12,6 +13,15 @@ class AppTheme {
   static const double radiusSmall = 10;
   static const double radiusMedium = 16;
   static const double radiusLarge = 22;
+
+  /// Largura máxima de uma coluna de leitura/formulário. Numa tela de 27",
+  /// deixar um campo de texto ocupar 2000px de largura é o erro mais comum
+  /// de UI "de celular esticada" — nada aqui deve ultrapassar isso.
+  static const double contentMaxWidth = 1180;
+
+  /// Largura da coluna de escrita no editor. Mais estreita que
+  /// [contentMaxWidth] porque texto corrido pede ~70 caracteres por linha.
+  static const double editorMaxWidth = 760;
 
   /// Estilo usado para o corpo do texto no editor de páginas.
   static TextStyle editorBodyStyle(BuildContext context) {
@@ -85,15 +95,36 @@ class AppTheme {
       fontFamily: kSansFontFamily,
       textTheme: baseTextTheme,
       splashFactory: InkRipple.splashFactory,
+      // Densidade de desktop: encolhe a altura padrão de botões, tiles e
+      // campos. Sem isso, cada controle carrega a área de toque de 48px
+      // pensada para o dedo, e a tela inteira parece um app de celular
+      // ampliado.
+      visualDensity: VisualDensity.compact,
       dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
+      // O mouse tem uma roda e uma barra de rolagem; a barra precisa existir
+      // e ficar visível ao passar o cursor.
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.hovered) || states.contains(WidgetState.dragged)) {
+            return inkSecondary.withValues(alpha: 0.55);
+          }
+          return inkSecondary.withValues(alpha: 0.25);
+        }),
+        thickness: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.hovered) ? 10 : 7,
+        ),
+        radius: const Radius.circular(999),
+        crossAxisMargin: 3,
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: background,
+        // Transparente para deixar o gradiente de fundo passar por baixo.
+        backgroundColor: Colors.transparent,
         foregroundColor: ink,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        titleTextStyle: baseTextTheme.headlineSmall,
+        titleTextStyle: baseTextTheme.titleLarge,
         iconTheme: IconThemeData(color: ink),
       ),
       cardTheme: CardThemeData(
@@ -128,7 +159,7 @@ class AppTheme {
           backgroundColor: AppColors.terracotta,
           foregroundColor: Colors.white,
           disabledBackgroundColor: AppColors.terracotta.withValues(alpha: 0.4),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           elevation: 0,
           textStyle: const TextStyle(fontFamily: kSansFontFamily, fontWeight: FontWeight.w600, fontSize: 14.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
@@ -138,7 +169,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
           side: BorderSide(color: border),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           textStyle: const TextStyle(fontFamily: kSansFontFamily, fontWeight: FontWeight.w600, fontSize: 14.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
         ),
@@ -160,9 +191,22 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surfaceRaised,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusLarge),
+          side: BorderSide(color: border),
+        ),
         titleTextStyle: baseTextTheme.headlineSmall,
         contentTextStyle: baseTextTheme.bodyMedium,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surfaceRaised,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          side: BorderSide(color: border),
+        ),
+        textStyle: baseTextTheme.bodyMedium,
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: ink,
@@ -181,6 +225,7 @@ class AppTheme {
           inkSecondary: inkSecondary,
           surfaceRaised: surfaceRaised,
         ),
+        AppSurfaces.of(brightness),
       ],
     );
   }

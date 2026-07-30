@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/sound_service.dart';
+import 'surfaces.dart';
+
 /// Diálogo genérico com um único campo de texto — usado para criar e
 /// renomear livros, capítulos e páginas.
 class TextPromptDialog extends StatefulWidget {
@@ -22,8 +25,9 @@ class TextPromptDialog extends StatefulWidget {
     required String label,
     String initialValue = '',
     String confirmLabel = 'Salvar',
-  }) {
-    return showDialog<String>(
+  }) async {
+    context.sounds.play(UiSound.open);
+    final result = await showDialog<String>(
       context: context,
       builder: (_) => TextPromptDialog(
         title: title,
@@ -32,6 +36,10 @@ class TextPromptDialog extends StatefulWidget {
         confirmLabel: confirmLabel,
       ),
     );
+    // Sem valor = o usuário desistiu. Confirmar deixa o som para quem
+    // chamou, que sabe se criou, renomeou ou nada aconteceu.
+    if (context.mounted && result == null) context.sounds.play(UiSound.close);
+    return result;
   }
 
   @override
@@ -68,14 +76,18 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
         decoration: InputDecoration(labelText: widget.label),
         onSubmitted: (_) => _submit(),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
+        const SizedBox(width: 4),
+        AccentButton(
+          label: widget.confirmLabel,
           onPressed: _submit,
-          child: Text(widget.confirmLabel),
+          // Quem chamou o diálogo toca o som do resultado.
+          sound: UiSound.tap,
         ),
       ],
     );

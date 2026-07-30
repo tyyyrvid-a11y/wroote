@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_motion.dart';
+
 class WordCountBadge extends StatelessWidget {
   final int count;
 
@@ -7,20 +9,48 @@ class WordCountBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary.withValues(alpha: 0.18),
+            theme.colorScheme.primary.withValues(alpha: 0.06),
+          ],
+        ),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.20)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.short_text, size: 14),
-          const SizedBox(width: 6),
+          Icon(Icons.short_text, size: 15, color: theme.colorScheme.primary),
+          const SizedBox(width: 7),
+          // O número troca a cada tecla digitada; sem a transição ele
+          // "pisca" no canto da tela e rouba a atenção de quem escreve.
+          AnimatedSwitcher(
+            duration: AppMotion.fast,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            child: Text(
+              '$count',
+              key: ValueKey(count),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           Text(
-            '$count ${count == 1 ? 'palavra' : 'palavras'}',
-            style: Theme.of(context).textTheme.labelMedium,
+            count == 1 ? 'palavra' : 'palavras',
+            style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary),
           ),
         ],
       ),
