@@ -1,0 +1,49 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# Runners nativos de desktop: gerados via
+# `flutter create --platforms=windows,macos,linux .`
+# (também regenerados no CI antes do build). Não versionamos aqui para
+# evitar scaffolding desatualizado ou não verificado localmente.
+/windows/
+/macos/
+/linux/
+/android/
+/ios/
+/web/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Pasta original do zip de fontes, já copiada para fonts/serif/
+/Anthropic Serif-fontiko/
