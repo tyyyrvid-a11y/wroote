@@ -248,6 +248,7 @@ class _ChapterTileState extends State<_ChapterTile> {
                         onRename: () => widget.onRenamePage(page.id, page.title),
                         onDelete: () => widget.onDeletePage(page.id, page.title, pages.length),
                       ),
+                    _AddPageTile(onTap: () => widget.provider.addPage(widget.chapter.id)),
                     const SizedBox(height: 4),
                   ],
                 )
@@ -335,6 +336,55 @@ class _PageTile extends StatelessWidget {
                   ('rename', Icons.drive_file_rename_outline, 'Renomear página', false),
                   ('delete', Icons.delete_outline, 'Excluir página', true),
                 ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Última linha de cada capítulo: cria uma página ali dentro.
+///
+/// Criar página estava só no menu "…" do capítulo, enquanto criar capítulo
+/// tinha um "+" visível no topo da coluna — a assimetria fazia parecer que
+/// páginas não podiam ser criadas. A ação mora no fim da lista de páginas
+/// porque é exatamente onde a nova página vai aparecer.
+class _AddPageTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddPageTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surfaces = context.surfaces;
+    final faint = theme.textTheme.labelSmall?.color;
+
+    return Hoverable(
+      onTap: onTap,
+      tapSound: UiSound.success,
+      builder: (context, hovered, pressed) {
+        final foreground = hovered ? theme.colorScheme.onSurface : faint;
+        return AnimatedContainer(
+          duration: AppMotion.instant,
+          curve: AppMotion.enter,
+          padding: const EdgeInsets.fromLTRB(26, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: hovered ? surfaces.hoverTint : Colors.transparent,
+            border: const Border(left: BorderSide(color: Colors.transparent, width: 2)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.add, size: 14, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                'Nova página',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: 12.5,
+                  color: foreground,
+                ),
               ),
             ],
           ),
