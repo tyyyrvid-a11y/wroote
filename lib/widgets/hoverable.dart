@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/sound_service.dart';
-import '../theme/app_motion.dart';
 
 /// Envolve qualquer conteúdo com o trio que todo elemento clicável de
 /// desktop precisa ter: cursor de mão, estado de hover e estado de pressão —
@@ -84,31 +83,6 @@ class _HoverableState extends State<Hoverable> {
         onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
         child: child,
       ),
-    );
-  }
-}
-
-/// Escala sutil aplicada ao pressionar. 0.98 é o limite do perceptível — o
-/// suficiente para o clique responder, longe do "botão de brinquedo".
-class PressScale extends StatelessWidget {
-  final bool pressed;
-  final Widget child;
-  final double scale;
-
-  const PressScale({
-    super.key,
-    required this.pressed,
-    required this.child,
-    this.scale = 0.98,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: pressed ? scale : 1,
-      duration: AppMotion.instant,
-      curve: AppMotion.enter,
-      child: child,
     );
   }
 }

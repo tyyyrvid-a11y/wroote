@@ -12,6 +12,11 @@ class AutosaveField extends StatefulWidget {
   final int? maxLines;
   final TextStyle? style;
 
+  /// Sem moldura nem fundo: o campo se parece com o texto que contém, e a
+  /// edição acontece no lugar. Usado no título da página, que é um nome
+  /// exibido — não um campo de formulário.
+  final bool bare;
+
   const AutosaveField({
     super.key,
     this.label,
@@ -21,6 +26,7 @@ class AutosaveField extends StatefulWidget {
     this.minLines,
     this.maxLines = 1,
     this.style,
+    this.bare = false,
   });
 
   @override
@@ -50,11 +56,24 @@ class _AutosaveFieldState extends State<AutosaveField> {
       minLines: widget.minLines,
       maxLines: widget.maxLines,
       style: widget.style,
-      decoration: InputDecoration(
-        labelText: widget.label,
-        hintText: widget.hint,
-        alignLabelWithHint: true,
-      ),
+      decoration: widget.bare
+          ? InputDecoration(
+              hintText: widget.hint,
+              filled: false,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              hintStyle: widget.style?.copyWith(
+                color: Theme.of(context).textTheme.labelSmall?.color,
+              ),
+            )
+          : InputDecoration(
+              labelText: widget.label,
+              hintText: widget.hint,
+              alignLabelWithHint: true,
+            ),
     );
   }
 }

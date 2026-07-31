@@ -5,13 +5,17 @@ import '../services/editor_provider.dart';
 import '../services/sound_service.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_surfaces.dart';
-import '../theme/app_theme.dart';
 import 'confirm_dialog.dart';
+import 'counters.dart';
 import 'hoverable.dart';
 import 'surfaces.dart';
 import 'text_prompt_dialog.dart';
 
 /// Navegação em árvore entre capítulos e páginas, usada na tela de escrita.
+///
+/// Os grupos são separados por linhas de 1px, não por blocos de fundo
+/// cinza: numa lista de vinte capítulos, vinte blocos preenchidos viram uma
+/// escada de retângulos, e o texto — que é o conteúdo real — some no meio.
 class ChapterPageSidebar extends StatelessWidget {
   final EditorProvider provider;
 
@@ -79,32 +83,41 @@ class ChapterPageSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
+    final chapters = provider.chapters;
 
     return Container(
-      width: 250,
-      decoration: BoxDecoration(gradient: context.surfaces.chrome),
+      width: 258,
+      color: surfaces.panel,
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
             child: Row(
               children: [
-                Expanded(child: Text('Capítulos', style: theme.textTheme.titleSmall)),
+                Expanded(child: Text('CAPÍTULOS', style: theme.textTheme.titleSmall)),
+                MonoText(
+                  '${chapters.length}',
+                  size: 10.5,
+                  color: theme.textTheme.labelSmall?.color,
+                ),
+                const SizedBox(width: 8),
                 AppIconButton(
-                  icon: Icons.post_add_outlined,
+                  icon: Icons.add,
                   tooltip: 'Novo capítulo',
+                  size: 16,
                   sound: UiSound.success,
                   onPressed: () => provider.addChapter(),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outline),
+          Divider(height: 1, color: surfaces.hairline),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              padding: EdgeInsets.zero,
               children: [
-                for (final chapter in provider.chapters)
+                for (final chapter in chapters)
                   _ChapterTile(
                     key: ValueKey(chapter.id),
                     chapter: chapter,
@@ -156,6 +169,7 @@ class _ChapterTileState extends State<_ChapterTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
     final pages = widget.provider.pagesFor(widget.chapter.id);
     final isCurrentChapter = widget.chapter.id == widget.provider.currentChapterId;
 
@@ -168,13 +182,9 @@ class _ChapterTileState extends State<_ChapterTile> {
           builder: (context, hovered, pressed) {
             return AnimatedContainer(
               duration: AppMotion.instant,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: hovered
-                    ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              ),
+              curve: AppMotion.enter,
+              padding: const EdgeInsets.fromLTRB(8, 9, 6, 9),
+              color: hovered ? surfaces.hoverTint : Colors.transparent,
               child: Row(
                 children: [
                   // Uma seta que gira lê melhor que dois ícones distintos:
@@ -183,19 +193,26 @@ class _ChapterTileState extends State<_ChapterTile> {
                     turns: _expanded ? 0.25 : 0,
                     duration: AppMotion.fast,
                     curve: AppMotion.enter,
-                    child: Icon(Icons.chevron_right, size: 18, color: theme.iconTheme.color),
+                    child: Icon(Icons.chevron_right, size: 16, color: theme.iconTheme.color),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
+                      // Serifado, como o nome do livro — é um nome que o
+                      // autor escreveu. Um degrau abaixo dele em tamanho, e
+                      // um degrau acima do nome da página.
                       widget.chapter.title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: isCurrentChapter ? FontWeight.w700 : FontWeight.w500,
-                        color: isCurrentChapter ? theme.colorScheme.primary : null,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: 14,
+                        height: 1.3,
+                        color: isCurrentChapter
+                            ? theme.colorScheme.onSurface
+                            : theme.textTheme.bodySmall?.color,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 4),
                   _TileMenu(
                     onSelected: (value) {
                       if (value == 'rename') widget.onRename();
@@ -203,8 +220,8 @@ class _ChapterTileState extends State<_ChapterTile> {
                       if (value == 'add_page') widget.provider.addPage(widget.chapter.id);
                     },
                     items: const [
-                      ('add_page', Icons.note_add_outlined, 'Nova página', false),
-                      ('rename', Icons.edit_outlined, 'Renomear capítulo', false),
+                      ('add_page', Icons.add, 'Nova página', false),
+                      ('rename', Icons.drive_file_rename_outline, 'Renomear capítulo', false),
                       ('delete', Icons.delete_outline, 'Excluir capítulo', true),
                     ],
                   ),
@@ -231,10 +248,12 @@ class _ChapterTileState extends State<_ChapterTile> {
                         onRename: () => widget.onRenamePage(page.id, page.title),
                         onDelete: () => widget.onDeletePage(page.id, page.title, pages.length),
                       ),
+                    const SizedBox(height: 4),
                   ],
                 )
               : const SizedBox(width: double.infinity),
         ),
+        Divider(height: 1, color: surfaces.hairline),
       ],
     );
   }
@@ -259,74 +278,68 @@ class _PageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 18, top: 1, bottom: 1),
-      child: Hoverable(
-        onTap: onTap,
-        hoverSound: isSelected ? null : UiSound.hover,
-        tapSound: isSelected ? null : UiSound.page,
-        builder: (context, hovered, pressed) {
-          return AnimatedContainer(
-            duration: AppMotion.instant,
-            padding: const EdgeInsets.only(left: 10, right: 4, top: 7, bottom: 7),
-            decoration: BoxDecoration(
-              gradient: isSelected
-                  ? LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        theme.colorScheme.primary.withValues(alpha: 0.22),
-                        theme.colorScheme.primary.withValues(alpha: 0.06),
-                      ],
-                    )
-                  : null,
-              color: !isSelected && hovered
-                  ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                  : null,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              border: Border(
-                // Marcador de 2px na borda esquerda do item ativo — mais
-                // legível numa lista densa do que só a mudança de fundo.
-                left: BorderSide(
-                  color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-                  width: 2,
-                ),
+    return Hoverable(
+      onTap: onTap,
+      hoverSound: isSelected ? null : UiSound.hover,
+      tapSound: isSelected ? null : UiSound.page,
+      builder: (context, hovered, pressed) {
+        return AnimatedContainer(
+          duration: AppMotion.instant,
+          curve: AppMotion.enter,
+          padding: const EdgeInsets.fromLTRB(26, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? surfaces.activeTint
+                : hovered
+                    ? surfaces.hoverTint
+                    : Colors.transparent,
+            border: Border(
+              // Marcador de 2px encostado na borda da coluna. Numa lista
+              // densa ele é mais legível que qualquer mudança de fundo.
+              left: BorderSide(
+                color: isSelected ? surfaces.accentInk : Colors.transparent,
+                width: 2,
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.description_outlined,
-                  size: 15,
-                  color: isSelected ? theme.colorScheme.primary : theme.iconTheme.color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isSelected ? theme.colorScheme.primary : null,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.description_outlined,
+                size: 14,
+                color: isSelected ? surfaces.accentInk : theme.textTheme.labelSmall?.color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  // Nome de arquivo: sans, tamanho de UI, peso normal. É o
+                  // degrau mais baixo da hierarquia de nomes.
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 12.5,
+                    color: isSelected ? surfaces.accentInk : theme.textTheme.bodySmall?.color,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                _TileMenu(
-                  onSelected: (value) {
-                    if (value == 'rename') onRename();
-                    if (value == 'delete') onDelete();
-                  },
-                  items: const [
-                    ('rename', Icons.edit_outlined, 'Renomear página', false),
-                    ('delete', Icons.delete_outline, 'Excluir página', true),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+              const SizedBox(width: 4),
+              _TileMenu(
+                onSelected: (value) {
+                  if (value == 'rename') onRename();
+                  if (value == 'delete') onDelete();
+                },
+                items: const [
+                  ('rename', Icons.drive_file_rename_outline, 'Renomear página', false),
+                  ('delete', Icons.delete_outline, 'Excluir página', true),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -346,18 +359,18 @@ class _TileMenu extends StatelessWidget {
     final theme = Theme.of(context);
 
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_horiz, size: 16),
+      icon: const Icon(Icons.more_horiz, size: 15),
       tooltip: 'Opções',
       padding: EdgeInsets.zero,
-      splashRadius: 16,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 28),
+      iconSize: 15,
+      constraints: const BoxConstraints(minWidth: 180),
       position: PopupMenuPosition.under,
       onSelected: onSelected,
       itemBuilder: (context) => [
         for (final (value, icon, label, destructive) in items)
           PopupMenuItem(
             value: value,
-            height: 38,
+            height: 34,
             child: Row(
               children: [
                 Icon(icon, size: 15, color: destructive ? theme.colorScheme.error : null),

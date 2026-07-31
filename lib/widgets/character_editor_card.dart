@@ -22,15 +22,16 @@ class CharacterEditorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        // Cartão aninhado dentro do cartão de seção: usa o gradiente de
-        // "chrome", mais discreto, para se ler como um nível abaixo em vez
-        // de competir com o cartão que o contém.
-        gradient: context.surfaces.chrome,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: context.semanticColors.border),
+        // Cartão aninhado dentro do cartão de seção: recua para a cor de
+        // painel para se ler como um nível abaixo, em vez de competir com o
+        // cartão que o contém.
+        color: surfaces.panel,
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        border: Border.all(color: surfaces.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,6 +49,7 @@ class CharacterEditorCard extends StatelessWidget {
               AppIconButton(
                 icon: Icons.delete_outline,
                 tooltip: 'Excluir personagem',
+                size: 16,
                 color: theme.colorScheme.error,
                 sound: UiSound.tap,
                 onPressed: onDelete,

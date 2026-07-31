@@ -70,24 +70,30 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(labelText: widget.label),
-        onSubmitted: (_) => _submit(),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
+      content: SizedBox(
+        width: 340,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: widget.label),
+          onSubmitted: (_) => _submit(),
         ),
-        const SizedBox(width: 4),
-        AccentButton(
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      actions: [
+        SecondaryButton(
+          label: 'Cancelar',
+          sound: null, // O `close` toca ao fechar o diálogo.
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(width: 8),
+        PrimaryButton(
           label: widget.confirmLabel,
           onPressed: _submit,
           // Quem chamou o diálogo toca o som do resultado.
-          sound: UiSound.tap,
+          sound: null,
         ),
       ],
     );

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_motion.dart';
 
-/// Faz o filho entrar com fade + deslocamento para cima, atrasado conforme
-/// [index].
+/// Faz o filho entrar com fade + um deslocamento mínimo para cima, atrasado
+/// conforme [index].
 ///
-/// A entrada encenada existe para dar ao olho uma ordem de leitura: os
-/// cartões aparecem na sequência em que devem ser lidos, em vez de a grade
-/// inteira piscar de uma vez. O atraso tem teto em [AppMotion.staggerCap]
-/// para que bibliotecas grandes não fiquem lentas.
+/// A entrada encenada existe para dar ao olho uma ordem de leitura, não para
+/// ser notada: são 190ms e 6px, e o atraso entre itens tem teto em
+/// [AppMotion.staggerCap]. Se der para acompanhar os cartões chegando um a
+/// um, está lento demais.
 class StaggeredEntrance extends StatefulWidget {
   final int index;
   final Widget child;
@@ -20,7 +20,7 @@ class StaggeredEntrance extends StatefulWidget {
     super.key,
     required this.index,
     required this.child,
-    this.offset = 12,
+    this.offset = 6,
   });
 
   @override
@@ -30,7 +30,7 @@ class StaggeredEntrance extends StatefulWidget {
 class _StaggeredEntranceState extends State<StaggeredEntrance> with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: AppMotion.slow,
+    duration: AppMotion.base,
   );
 
   // Criado uma vez, e não dentro do `build`: um CurvedAnimation por
@@ -62,8 +62,6 @@ class _StaggeredEntranceState extends State<StaggeredEntrance> with SingleTicker
       animation: _curved,
       builder: (context, child) {
         return Opacity(
-          // `clamp` porque uma curva com exagero no fim pode passar de 1,
-          // e Opacity lança fora do intervalo 0..1.
           opacity: _curved.value.clamp(0.0, 1.0),
           child: Transform.translate(
             offset: Offset(0, widget.offset * (1 - _curved.value)),

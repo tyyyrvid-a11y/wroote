@@ -6,21 +6,19 @@ import '../theme/app_surfaces.dart';
 import '../theme/app_theme.dart';
 import 'hoverable.dart';
 
-/// [Scaffold] que pinta o gradiente de fundo do app.
+/// [Scaffold] com o fundo chapado do app.
 ///
-/// O gradiente fica atrás de tudo para que a janela inteira seja uma
-/// superfície contínua, em vez de faixas de cor empilhadas. O [Scaffold]
-/// por cima fica transparente e continua fornecendo o que interessa:
-/// [ScaffoldMessenger] para as SnackBars e a camada de overlays.
-class GradientScaffold extends StatelessWidget {
+/// O [Scaffold] por cima fica transparente e continua fornecendo o que
+/// interessa: [ScaffoldMessenger] para as SnackBars e a camada de overlays.
+class AppScaffold extends StatelessWidget {
   final Widget body;
 
-  const GradientScaffold({super.key, required this.body});
+  const AppScaffold({super.key, required this.body});
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: context.surfaces.background),
+    return ColoredBox(
+      color: context.surfaces.canvas,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: body,
@@ -29,11 +27,13 @@ class GradientScaffold extends StatelessWidget {
   }
 }
 
-/// Superfície elevada padrão: gradiente vertical, borda, sombra e a linha
-/// de luz de 1px no topo.
+/// Superfície de conteúdo: cor chapada e uma borda de 1px. Sem sombra, sem
+/// elevação, sem subir no hover.
 ///
-/// Quando [onTap] é informado, o cartão ganha hover (sobe, clareia e a
-/// sombra se espalha) e som; caso contrário é puramente decorativo.
+/// A separação entre um cartão e o fundo vem do par cor + linha; a separação
+/// entre um cartão e o outro vem do espaço entre eles. Sombra aqui seria
+/// decoração pura — e é o que faz uma grade de cartões parecer uma tela de
+/// dashboard em vez de uma lista de arquivos.
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -41,129 +41,80 @@ class AppCard extends StatelessWidget {
   final VoidCallback? onSecondaryTap;
   final double radius;
 
-  /// Deslocamento vertical no hover. Zero desliga a subida, mantendo só a
-  /// mudança de cor — usado onde o cartão está dentro de uma lista rolável.
-  final double hoverLift;
-
   const AppCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(18),
     this.onTap,
     this.onSecondaryTap,
-    this.radius = AppTheme.radiusLarge,
-    this.hoverLift = 3,
+    this.radius = AppTheme.radiusSurface,
   });
 
   @override
   Widget build(BuildContext context) {
     final surfaces = context.surfaces;
-    final border = Theme.of(context).colorScheme.outline;
     final borderRadius = BorderRadius.circular(radius);
+    final interactive = onTap != null || onSecondaryTap != null;
 
     return Hoverable(
       onTap: onTap,
       onSecondaryTap: onSecondaryTap,
       // Cartões grandes com som de hover ficam cansativos; quem faz barulho
       // aqui é o clique.
-      hoverSound: onTap == null ? null : UiSound.hover,
+      hoverSound: null,
       builder: (context, hovered, pressed) {
+        final active = interactive && (hovered || pressed);
         return AnimatedContainer(
-          duration: AppMotion.fast,
+          duration: AppMotion.instant,
           curve: AppMotion.enter,
-          transform: Matrix4.translationValues(0, hovered ? -hoverLift : 0, 0),
           decoration: BoxDecoration(
-            gradient: hovered ? surfaces.cardHovered : surfaces.card,
+            color: active ? surfaces.cardHover : surfaces.card,
             borderRadius: borderRadius,
             border: Border.all(
-              color: hovered
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.45)
-                  : border,
-            ),
-            boxShadow: hovered ? surfaces.cardShadowHovered : surfaces.cardShadow,
-          ),
-          child: PressScale(
-            pressed: pressed,
-            child: _TopHighlight(
-              radius: radius,
-              color: surfaces.topHighlight,
-              child: Padding(padding: padding, child: child),
+              color: active ? surfaces.hairlineStrong : surfaces.hairline,
             ),
           ),
+          child: Padding(padding: padding, child: child),
         );
       },
     );
   }
 }
 
-/// Desenha uma linha de luz de 1px acompanhando a borda superior
-/// arredondada. É o detalhe que dá espessura à superfície.
-class _TopHighlight extends StatelessWidget {
-  final double radius;
-  final Color color;
-  final Widget child;
-
-  const _TopHighlight({required this.radius, required this.color, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      foregroundPainter: _TopHighlightPainter(radius: radius, color: color),
-      child: child,
-    );
-  }
-}
-
-class _TopHighlightPainter extends CustomPainter {
-  final double radius;
-  final Color color;
-
-  _TopHighlightPainter({required this.radius, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    // Meio pixel para dentro, senão a linha cai em cima da borda do
-    // container e some.
-    final r = radius - 0.5;
-    final path = Path()
-      ..moveTo(0.5, radius)
-      ..arcToPoint(Offset(radius, 0.5), radius: Radius.circular(r))
-      ..lineTo(size.width - radius, 0.5)
-      ..arcToPoint(Offset(size.width - 0.5, radius), radius: Radius.circular(r));
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_TopHighlightPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
-}
-
-/// Botão primário com gradiente de acento e sombra colorida.
-class AccentButton extends StatelessWidget {
+/// Ação primária: retângulo de cantos levemente arredondados, preenchido com
+/// o acento, ancorado no fluxo do layout. Um por tela, no máximo.
+///
+/// Com [destructive], troca o acento pela cor de erro — é o único outro
+/// preenchimento colorido que existe no app.
+class PrimaryButton extends StatelessWidget {
   final String label;
   final IconData? icon;
   final VoidCallback? onPressed;
-  final UiSound sound;
 
-  const AccentButton({
+  /// `null` silencia o clique — para quando a ação que se segue toca o
+  /// próprio som e dois efeitos colados viram um borrão.
+  final UiSound? sound;
+  final bool destructive;
+
+  const PrimaryButton({
     super.key,
     required this.label,
     this.icon,
     required this.onPressed,
     this.sound = UiSound.tap,
+    this.destructive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final surfaces = context.surfaces;
     final enabled = onPressed != null;
-    final borderRadius = BorderRadius.circular(AppTheme.radiusMedium);
+
+    final base = destructive ? theme.colorScheme.error : surfaces.accentFill;
+    final raised = destructive
+        ? Color.lerp(theme.colorScheme.error, Colors.white, 0.12)!
+        : surfaces.accentFillHover;
 
     return Hoverable(
       onTap: onPressed,
@@ -172,33 +123,32 @@ class AccentButton extends StatelessWidget {
         return AnimatedContainer(
           duration: AppMotion.instant,
           curve: AppMotion.enter,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          height: 32,
+          padding: EdgeInsets.symmetric(horizontal: icon == null ? 16 : 12),
           decoration: BoxDecoration(
-            gradient: enabled ? surfaces.accent : null,
-            color: enabled ? null : Theme.of(context).colorScheme.outline,
-            borderRadius: borderRadius,
-            boxShadow: enabled && hovered ? surfaces.accentShadow : const [],
+            color: !enabled
+                ? surfaces.hairline
+                : pressed
+                    ? base
+                    : hovered
+                        ? raised
+                        : base,
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           ),
-          child: PressScale(
-            pressed: pressed,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 18, color: Colors.white),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: kSansFontFamily,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14.5,
-                  ),
-                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: Colors.white),
+                const SizedBox(width: 7),
               ],
-            ),
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: enabled ? Colors.white : theme.disabledColor,
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -206,9 +156,54 @@ class AccentButton extends StatelessWidget {
   }
 }
 
-/// Botão de ícone com hover, tooltip e som — o equivalente desktop do
-/// [IconButton], que no Material tem área de toque de 48px e nenhum
-/// feedback de cursor além do overlay padrão.
+/// Botão secundário: só contorno. Usado onde a ação existe mas não é o que
+/// se espera que a pessoa faça.
+class SecondaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final UiSound? sound;
+
+  const SecondaryButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.sound = UiSound.tap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surfaces = context.surfaces;
+
+    return Hoverable(
+      onTap: onPressed,
+      tapSound: sound,
+      builder: (context, hovered, pressed) {
+        return AnimatedContainer(
+          duration: AppMotion.instant,
+          curve: AppMotion.enter,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: hovered ? surfaces.hoverTint : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            border: Border.all(
+              color: hovered ? surfaces.hairlineStrong : surfaces.hairline,
+            ),
+          ),
+          child: Text(label, style: theme.textTheme.labelLarge),
+        );
+      },
+    );
+  }
+}
+
+/// Botão de ícone da interface. Todos têm o mesmo tamanho de alvo (28×28) e
+/// o mesmo tamanho de glifo, independentemente de onde apareçam.
+///
+/// O estado ativo tinge o ícone com o acento e o fundo com o acento em
+/// opacidade baixa — nunca um preenchimento cheio de cor.
 class AppIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -217,49 +212,82 @@ class AppIconButton extends StatelessWidget {
   final Color? color;
   final UiSound sound;
 
+  /// Som ao passar o cursor. A barra do editor passa `null`: doze ícones
+  /// lado a lado tocando a cada centímetro de mouse viram ruído.
+  final UiSound? hoverSound;
+
+  /// Estado ligado/selecionado — usado pela barra do editor.
+  final bool active;
+
   const AppIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.size = 18,
+    this.size = 17,
     this.color,
     this.sound = UiSound.tap,
+    this.hoverSound = UiSound.hover,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
+    final enabled = onPressed != null;
 
     return Hoverable(
       onTap: onPressed,
       tooltip: tooltip,
       tapSound: sound,
+      hoverSound: hoverSound,
       builder: (context, hovered, pressed) {
+        final Color iconColor;
+        if (!enabled) {
+          iconColor = theme.disabledColor;
+        } else if (active) {
+          iconColor = surfaces.accentInk;
+        } else if (hovered) {
+          iconColor = theme.colorScheme.onSurface;
+        } else {
+          iconColor = color ?? theme.iconTheme.color!;
+        }
+
         return AnimatedContainer(
           duration: AppMotion.instant,
-          padding: const EdgeInsets.all(7),
+          curve: AppMotion.enter,
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: hovered
-                ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            color: active
+                ? surfaces.activeTint
+                : (hovered && enabled)
+                    ? surfaces.hoverTint
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radiusTight),
           ),
-          child: PressScale(
-            pressed: pressed,
-            scale: 0.9,
-            child: Icon(
-              icon,
-              size: size,
-              color: onPressed == null
-                  ? theme.disabledColor
-                  : hovered
-                      ? theme.colorScheme.primary
-                      : (color ?? theme.iconTheme.color),
-            ),
-          ),
+          child: Icon(icon, size: size, color: iconColor),
         );
       },
+    );
+  }
+}
+
+/// Separador vertical de 1px para agrupar controles numa barra.
+class ToolbarSeparator extends StatelessWidget {
+  final double height;
+
+  const ToolbarSeparator({super.key, this.height = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: height,
+      margin: const EdgeInsets.symmetric(horizontal: 7),
+      color: context.surfaces.hairline,
     );
   }
 }

@@ -2,131 +2,89 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Gradientes e sombras do app, expostos como [ThemeExtension] para que
+/// Tokens de superfície do app, expostos como [ThemeExtension] para que
 /// claro e escuro sejam interpolados junto com o resto do tema.
 ///
-/// Existe uma convenção única por trás de tudo aqui: a luz vem de cima. Todo
-/// gradiente vai do tom mais claro no topo para o mais escuro na base, toda
-/// sombra cai para baixo, e superfícies elevadas ganham uma linha de luz de
-/// 1px na borda superior. Seguir isso à risca é o que diferencia "tem
-/// profundidade" de "tem gradiente".
+/// Aqui não existe gradiente nem sombra decorativa. A hierarquia entre
+/// planos é dita por três coisas, nesta ordem: **cor chapada**, **linha de
+/// 1px** e **espaçamento**. Sombra sobrou em um único lugar — [overlayShadow]
+/// — porque um menu ou diálogo precisa se destacar da página que ele cobre.
 @immutable
 class AppSurfaces extends ThemeExtension<AppSurfaces> {
-  /// Fundo da janela. Aplicado uma vez, no [Scaffold] raiz de cada tela.
-  final LinearGradient background;
+  /// Fundo da janela.
+  final Color canvas;
 
-  /// Superfície de cartões e painéis elevados.
-  final LinearGradient card;
+  /// Barras laterais, cabeçalhos e faixas de ferramentas.
+  final Color panel;
 
-  /// Cartão sob o cursor. Mais claro e com um pouco mais de contraste.
-  final LinearGradient cardHovered;
+  /// Superfícies de conteúdo: cartões, folha do editor.
+  final Color card;
+  final Color cardHover;
 
-  /// Barras laterais e topo: mais discreto que um cartão, para não competir
-  /// com o conteúdo.
-  final LinearGradient chrome;
+  /// Divisores e bordas de 1px.
+  final Color hairline;
 
-  /// Botões primários e outros elementos de acento.
-  final LinearGradient accent;
+  /// Borda de 1px de um elemento sob o cursor ou em foco.
+  final Color hairlineStrong;
 
-  /// Linha de luz no topo de superfícies elevadas.
-  final Color topHighlight;
+  /// Acento legível como texto, ícone ou marcador.
+  final Color accentInk;
 
-  /// Sombra de repouso de um cartão.
-  final List<BoxShadow> cardShadow;
+  /// Acento como preenchimento, sempre com texto branco por cima.
+  final Color accentFill;
+  final Color accentFillHover;
 
-  /// Sombra de um cartão sob o cursor: mais alta e mais espalhada, como se
-  /// o cartão tivesse subido em direção à luz.
-  final List<BoxShadow> cardShadowHovered;
+  /// Fundo de um item ativo numa lista: o acento em opacidade baixa.
+  final Color activeTint;
 
-  /// Sombra de elementos flutuantes (diálogos, menus, barra de comando).
+  /// Fundo de um item sob o cursor. Neutro de propósito — hover não é
+  /// seleção, então não pode usar a cor de acento.
+  final Color hoverTint;
+
+  /// Sombra de elementos que flutuam sobre a página (diálogos, menus).
   final List<BoxShadow> overlayShadow;
 
-  /// Sombra colorida sob botões primários — herda o matiz do acento em vez
-  /// de um cinza neutro, que é o que faz o botão parecer emitir luz.
-  final List<BoxShadow> accentShadow;
-
   const AppSurfaces({
-    required this.background,
+    required this.canvas,
+    required this.panel,
     required this.card,
-    required this.cardHovered,
-    required this.chrome,
-    required this.accent,
-    required this.topHighlight,
-    required this.cardShadow,
-    required this.cardShadowHovered,
+    required this.cardHover,
+    required this.hairline,
+    required this.hairlineStrong,
+    required this.accentInk,
+    required this.accentFill,
+    required this.accentFillHover,
+    required this.activeTint,
+    required this.hoverTint,
     required this.overlayShadow,
-    required this.accentShadow,
   });
 
   factory AppSurfaces.of(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
 
-    // No escuro, sombras precisam ser bem mais opacas para aparecer sobre um
-    // fundo já escuro; no claro, o mesmo valor viraria uma mancha suja.
-    final shadowColor = isDark ? Colors.black : const Color(0xFF6B5B45);
-    double alpha(double light, double dark) => isDark ? dark : light;
-
     return AppSurfaces(
-      background: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: isDark
-            ? const [AppColors.duskBackgroundTop, AppColors.duskBackgroundBottom]
-            : const [AppColors.creamBackgroundTop, AppColors.creamBackgroundBottom],
-      ),
-      card: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: isDark
-            ? const [AppColors.duskCardTop, AppColors.duskCardBottom]
-            : const [AppColors.creamCardTop, AppColors.creamCardBottom],
-      ),
-      cardHovered: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: isDark
-            ? const [Color(0xFF3A3630), AppColors.duskCardTop]
-            : const [Colors.white, Color(0xFFFDFBF7)],
-      ),
-      chrome: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: isDark
-            ? const [Color(0xFF2B2721), Color(0xFF211E19)]
-            : const [Color(0xFFF9F6F0), Color(0xFFF2EDE4)],
-      ),
-      accent: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [AppColors.terracottaLight, AppColors.terracottaDeep],
-      ),
-      topHighlight: isDark ? AppColors.highlightDark : AppColors.highlightLight,
-      cardShadow: [
-        BoxShadow(
-          color: shadowColor.withValues(alpha: alpha(0.06, 0.28)),
-          blurRadius: 12,
-          offset: const Offset(0, 3),
-        ),
-      ],
-      cardShadowHovered: [
-        BoxShadow(
-          color: shadowColor.withValues(alpha: alpha(0.12, 0.40)),
-          blurRadius: 24,
-          offset: const Offset(0, 8),
-        ),
-      ],
+      canvas: isDark ? AppColors.graphiteCanvas : AppColors.paperCanvas,
+      panel: isDark ? AppColors.graphitePanel : AppColors.paperPanel,
+      card: isDark ? AppColors.graphiteCard : AppColors.paperCard,
+      cardHover: isDark ? AppColors.graphiteCardHover : AppColors.paperCardHover,
+      hairline: isDark ? AppColors.graphiteHairline : AppColors.paperHairline,
+      hairlineStrong: isDark ? AppColors.graphiteHairlineStrong : AppColors.paperHairlineStrong,
+      accentInk: isDark ? AppColors.accentOnDark : AppColors.accent,
+      // No escuro o acento cheio afunda no grafite; o tom levantado mantém o
+      // botão presente sem clarear a ponto de virar um bloco de cor.
+      accentFill: isDark ? AppColors.accentRaised : AppColors.accent,
+      accentFillHover: isDark ? const Color(0xFF3E828D) : AppColors.accentRaised,
+      activeTint: isDark
+          ? AppColors.accentOnDark.withValues(alpha: 0.10)
+          : AppColors.accent.withValues(alpha: 0.09),
+      hoverTint: isDark
+          ? Colors.white.withValues(alpha: 0.045)
+          : Colors.black.withValues(alpha: 0.035),
       overlayShadow: [
         BoxShadow(
-          color: shadowColor.withValues(alpha: alpha(0.18, 0.50)),
-          blurRadius: 40,
-          offset: const Offset(0, 16),
-        ),
-      ],
-      accentShadow: [
-        BoxShadow(
-          color: AppColors.terracotta.withValues(alpha: alpha(0.35, 0.30)),
-          blurRadius: 16,
-          offset: const Offset(0, 5),
+          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.18),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
         ),
       ],
     );
@@ -134,28 +92,32 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
 
   @override
   AppSurfaces copyWith({
-    LinearGradient? background,
-    LinearGradient? card,
-    LinearGradient? cardHovered,
-    LinearGradient? chrome,
-    LinearGradient? accent,
-    Color? topHighlight,
-    List<BoxShadow>? cardShadow,
-    List<BoxShadow>? cardShadowHovered,
+    Color? canvas,
+    Color? panel,
+    Color? card,
+    Color? cardHover,
+    Color? hairline,
+    Color? hairlineStrong,
+    Color? accentInk,
+    Color? accentFill,
+    Color? accentFillHover,
+    Color? activeTint,
+    Color? hoverTint,
     List<BoxShadow>? overlayShadow,
-    List<BoxShadow>? accentShadow,
   }) {
     return AppSurfaces(
-      background: background ?? this.background,
+      canvas: canvas ?? this.canvas,
+      panel: panel ?? this.panel,
       card: card ?? this.card,
-      cardHovered: cardHovered ?? this.cardHovered,
-      chrome: chrome ?? this.chrome,
-      accent: accent ?? this.accent,
-      topHighlight: topHighlight ?? this.topHighlight,
-      cardShadow: cardShadow ?? this.cardShadow,
-      cardShadowHovered: cardShadowHovered ?? this.cardShadowHovered,
+      cardHover: cardHover ?? this.cardHover,
+      hairline: hairline ?? this.hairline,
+      hairlineStrong: hairlineStrong ?? this.hairlineStrong,
+      accentInk: accentInk ?? this.accentInk,
+      accentFill: accentFill ?? this.accentFill,
+      accentFillHover: accentFillHover ?? this.accentFillHover,
+      activeTint: activeTint ?? this.activeTint,
+      hoverTint: hoverTint ?? this.hoverTint,
       overlayShadow: overlayShadow ?? this.overlayShadow,
-      accentShadow: accentShadow ?? this.accentShadow,
     );
   }
 
@@ -163,16 +125,18 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   AppSurfaces lerp(ThemeExtension<AppSurfaces>? other, double t) {
     if (other is! AppSurfaces) return this;
     return AppSurfaces(
-      background: LinearGradient.lerp(background, other.background, t)!,
-      card: LinearGradient.lerp(card, other.card, t)!,
-      cardHovered: LinearGradient.lerp(cardHovered, other.cardHovered, t)!,
-      chrome: LinearGradient.lerp(chrome, other.chrome, t)!,
-      accent: LinearGradient.lerp(accent, other.accent, t)!,
-      topHighlight: Color.lerp(topHighlight, other.topHighlight, t)!,
-      cardShadow: BoxShadow.lerpList(cardShadow, other.cardShadow, t)!,
-      cardShadowHovered: BoxShadow.lerpList(cardShadowHovered, other.cardShadowHovered, t)!,
+      canvas: Color.lerp(canvas, other.canvas, t)!,
+      panel: Color.lerp(panel, other.panel, t)!,
+      card: Color.lerp(card, other.card, t)!,
+      cardHover: Color.lerp(cardHover, other.cardHover, t)!,
+      hairline: Color.lerp(hairline, other.hairline, t)!,
+      hairlineStrong: Color.lerp(hairlineStrong, other.hairlineStrong, t)!,
+      accentInk: Color.lerp(accentInk, other.accentInk, t)!,
+      accentFill: Color.lerp(accentFill, other.accentFill, t)!,
+      accentFillHover: Color.lerp(accentFillHover, other.accentFillHover, t)!,
+      activeTint: Color.lerp(activeTint, other.activeTint, t)!,
+      hoverTint: Color.lerp(hoverTint, other.hoverTint, t)!,
       overlayShadow: BoxShadow.lerpList(overlayShadow, other.overlayShadow, t)!,
-      accentShadow: BoxShadow.lerpList(accentShadow, other.accentShadow, t)!,
     );
   }
 }

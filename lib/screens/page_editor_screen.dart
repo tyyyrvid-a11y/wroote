@@ -8,11 +8,12 @@ import '../theme/app_surfaces.dart';
 import '../theme/app_theme.dart';
 import '../widgets/autosave_field.dart';
 import '../widgets/chapter_page_sidebar.dart';
-import '../widgets/word_count_badge.dart';
+import '../widgets/counters.dart';
+import '../widgets/editor_toolbar.dart';
 
-/// Tela de escrita: editor de texto rico (flutter_quill) com negrito e
-/// itálico, contador de palavras em tempo real e navegação entre
-/// páginas/capítulos pela barra lateral. Autosave com debounce.
+/// Tela de escrita: editor de texto rico (flutter_quill) com a barra de
+/// formatação própria do app, contador de palavras em tempo real e navegação
+/// entre páginas/capítulos pela barra lateral. Autosave com debounce.
 class PageEditorScreen extends StatelessWidget {
   const PageEditorScreen({super.key});
 
@@ -21,17 +22,16 @@ class PageEditorScreen extends StatelessWidget {
     final provider = context.watch<EditorProvider>();
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
 
-    final theme = Theme.of(context);
     final currentPage = provider.currentPage;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ChapterPageSidebar(provider: provider),
-        VerticalDivider(width: 1, color: theme.colorScheme.outline),
+        VerticalDivider(width: 1, color: context.surfaces.hairline),
         Expanded(
           child: Column(
             children: [
@@ -46,6 +46,11 @@ class PageEditorScreen extends StatelessWidget {
   }
 }
 
+/// Cabeçalho da folha: o capítulo acima, o nome da página em serifada e a
+/// contagem de palavras à direita.
+///
+/// A linha do capítulo existe para fechar a hierarquia — sem ela, o nome da
+/// página fica solto e o autor perde de vista onde está no livro.
 class _EditorHeader extends StatelessWidget {
   final EditorProvider provider;
   final BookPage? currentPage;
@@ -54,29 +59,52 @@ class _EditorHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     // Cópia local: um campo de widget não sofre promoção de tipo, então
     // `currentPage.id` depois de um `!= null` não compilaria.
     final page = currentPage;
+    if (page == null) return const SizedBox(height: 24);
+
+    final matches = provider.chapters.where((c) => c.id == provider.currentChapterId);
+    final chapter = matches.isEmpty ? null : matches.first.title;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
+      padding: const EdgeInsets.fromLTRB(28, 22, 28, 14),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppTheme.editorMaxWidth),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: page == null
-                    ? const SizedBox.shrink()
-                    : AutosaveField(
-                        key: ValueKey('title-${page.id}'),
-                        initialValue: page.title,
-                        onChanged: (value) => provider.renamePage(page.id, value),
-                        style: Theme.of(context).textTheme.headlineMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (chapter != null)
+                      Text(
+                        chapter,
+                        style: theme.textTheme.labelMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    const SizedBox(height: 2),
+                    AutosaveField(
+                      key: ValueKey('title-${page.id}'),
+                      initialValue: page.title,
+                      onChanged: (value) => provider.renamePage(page.id, value),
+                      style: theme.textTheme.headlineMedium,
+                      // Sem moldura: o título da página é texto que se
+                      // edita no lugar, não um formulário a preencher.
+                      bare: true,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: 16),
-              WordCountBadge(count: provider.wordCount),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: WordCountReadout(count: provider.wordCount),
+              ),
             ],
           ),
         ),
@@ -85,9 +113,9 @@ class _EditorHeader extends StatelessWidget {
   }
 }
 
-/// A barra de formatação numa faixa própria, com o gradiente de "chrome" e
-/// uma borda embaixo. Solta sobre o fundo ela flutuava sem pertencer a
-/// nada; numa faixa, fica claro que é a moldura da folha logo abaixo.
+/// A barra de formatação numa faixa própria, na cor de painel e com uma
+/// linha de 1px em cima e embaixo. Solta sobre o fundo ela flutuava sem
+/// pertencer a nada; numa faixa, fica claro que é a moldura da folha.
 class _ToolbarBar extends StatelessWidget {
   final QuillController controller;
   final String? pageId;
@@ -96,25 +124,27 @@ class _ToolbarBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final surfaces = context.surfaces;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: context.surfaces.chrome,
+        color: surfaces.panel,
         border: Border(
-          top: BorderSide(color: theme.colorScheme.outline),
-          bottom: BorderSide(color: theme.colorScheme.outline),
+          top: BorderSide(color: surfaces.hairline),
+          bottom: BorderSide(color: surfaces.hairline),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppTheme.editorMaxWidth),
-          child: QuillSimpleToolbar(
-            key: ValueKey('toolbar-$pageId'),
-            controller: controller,
-            config: const QuillSimpleToolbarConfig(),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: EditorToolbar(
+              key: ValueKey('toolbar-$pageId'),
+              controller: controller,
+            ),
           ),
         ),
       ),
@@ -138,17 +168,19 @@ class _WritingSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final serifBody = AppTheme.editorBodyStyle(context);
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppTheme.editorMaxWidth + 96),
+        constraints: const BoxConstraints(maxWidth: AppTheme.editorMaxWidth + 112),
         child: Container(
           margin: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           decoration: BoxDecoration(
-            gradient: context.surfaces.card,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
-            border: Border.all(color: theme.colorScheme.outline),
-            boxShadow: context.surfaces.cardShadow,
+            color: surfaces.card,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radiusSurface),
+            ),
+            border: Border.all(color: surfaces.hairline),
           ),
           child: Theme(
             // O Quill lê o corpo do texto do tema, então a troca para a
@@ -161,7 +193,7 @@ class _WritingSurface extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(40, 32, 40, 8),
+              padding: const EdgeInsets.fromLTRB(48, 36, 48, 8),
               child: QuillEditor.basic(
                 key: ValueKey('editor-$pageId'),
                 controller: provider.controller,

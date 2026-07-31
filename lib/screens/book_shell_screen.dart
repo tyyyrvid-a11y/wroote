@@ -7,7 +7,7 @@ import '../services/editor_provider.dart';
 import '../services/sound_service.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_surfaces.dart';
-import '../theme/app_theme.dart';
+import '../widgets/counters.dart';
 import '../widgets/hoverable.dart';
 import '../widgets/surfaces.dart';
 import 'book_core_screen.dart';
@@ -58,7 +58,7 @@ class _BookShellScreenState extends State<BookShellScreen> {
         },
         child: Focus(
           autofocus: true,
-          child: GradientScaffold(
+          child: AppScaffold(
             body: SafeArea(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,7 +69,7 @@ class _BookShellScreenState extends State<BookShellScreen> {
                     onSelect: _goTo,
                     onClose: _close,
                   ),
-                  VerticalDivider(width: 1, color: Theme.of(context).colorScheme.outline),
+                  VerticalDivider(width: 1, color: context.surfaces.hairline),
                   // IndexedStack em vez de trocar o filho: mantém o editor
                   // Quill montado ao ir para o planejamento e voltar, o que
                   // preserva rolagem, cursor e histórico de desfazer.
@@ -105,53 +105,62 @@ class _BookNavRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
 
     return Container(
-      width: 236,
-      decoration: BoxDecoration(gradient: context.surfaces.chrome),
+      width: 240,
+      color: surfaces.panel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+            padding: const EdgeInsets.fromLTRB(8, 10, 12, 12),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppIconButton(
                   icon: Icons.arrow_back,
                   tooltip: 'Voltar para a biblioteca  (Ctrl+W)',
-                  size: 18,
+                  size: 16,
                   sound: UiSound.close,
                   onPressed: onClose,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Expanded(
-                  child: Text(
-                    bookTitle,
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      // O nome do livro é o topo da hierarquia: serifado e o
+                      // maior texto desta coluna. Tudo abaixo dele — seções,
+                      // capítulos, páginas — desce um degrau de cada vez.
+                      bookTitle,
+                      style: theme.textTheme.titleLarge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outline),
-          const SizedBox(height: 12),
+          Divider(height: 1, color: surfaces.hairline),
+          const SizedBox(height: 8),
           _RailItem(
-            icon: Icons.map_outlined,
+            icon: Icons.dashboard_outlined,
             label: 'Núcleo do livro',
             hint: 'Ctrl+1',
             selected: selected == 0,
             onTap: () => onSelect(0),
           ),
           _RailItem(
-            icon: Icons.edit_note_outlined,
+            icon: Icons.edit_outlined,
             label: 'Escrita',
             hint: 'Ctrl+2',
             selected: selected == 1,
             onTap: () => onSelect(1),
           ),
           const Spacer(),
+          Divider(height: 1, color: surfaces.hairline),
           const _AutosaveFooter(),
         ],
       ),
@@ -159,6 +168,12 @@ class _BookNavRail extends StatelessWidget {
   }
 }
 
+/// Item da barra de navegação.
+///
+/// O estado ativo não é um bloco de cor: é um marcador de 2px encostado na
+/// borda da coluna, o rótulo no acento e um fundo em opacidade baixa. Basta
+/// para achar onde se está com o canto do olho, sem transformar a barra
+/// lateral num painel de botões coloridos.
 class _RailItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -179,58 +194,56 @@ class _RailItem extends StatelessWidget {
     final theme = Theme.of(context);
     final surfaces = context.surfaces;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      child: Hoverable(
-        onTap: onTap,
-        // O item selecionado não toca som ao passar o cursor: ele já é o
-        // estado atual, não um destino.
-        hoverSound: selected ? null : UiSound.hover,
-        tapSound: null, // `onSelect` toca o som de troca de seção.
-        builder: (context, hovered, pressed) {
-          return AnimatedContainer(
-            duration: AppMotion.fast,
-            curve: AppMotion.enter,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: selected ? surfaces.accent : null,
-              color: !selected && hovered
-                  ? theme.colorScheme.primary.withValues(alpha: 0.10)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              boxShadow: selected ? surfaces.accentShadow : const [],
+    return Hoverable(
+      onTap: onTap,
+      // O item selecionado não toca som ao passar o cursor: ele já é o
+      // estado atual, não um destino.
+      hoverSound: selected ? null : UiSound.hover,
+      tapSound: null, // `onSelect` toca o som de troca de seção.
+      builder: (context, hovered, pressed) {
+        final foreground = selected ? surfaces.accentInk : theme.colorScheme.onSurface;
+        return AnimatedContainer(
+          duration: AppMotion.instant,
+          curve: AppMotion.enter,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? surfaces.activeTint
+                : hovered
+                    ? surfaces.hoverTint
+                    : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: selected ? surfaces.accentInk : Colors.transparent,
+                width: 2,
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 19,
-                  color: selected ? Colors.white : theme.iconTheme.color,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected ? Colors.white : theme.colorScheme.onSurface,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: selected ? surfaces.accentInk : theme.iconTheme.color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  hint,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? Colors.white.withValues(alpha: 0.75)
-                        : theme.textTheme.labelSmall?.color,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+              MonoText(
+                hint,
+                size: 10.5,
+                color: selected
+                    ? surfaces.accentInk.withValues(alpha: 0.8)
+                    : theme.textTheme.labelSmall?.color,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -245,11 +258,11 @@ class _AutosaveFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       child: Row(
         children: [
-          Icon(Icons.cloud_done_outlined, size: 15, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
+          Icon(Icons.check, size: 13, color: theme.textTheme.labelSmall?.color),
+          const SizedBox(width: 7),
           Expanded(
             child: Text('Salvo automaticamente', style: theme.textTheme.labelSmall),
           ),

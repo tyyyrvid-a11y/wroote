@@ -8,6 +8,7 @@ import '../theme/app_surfaces.dart';
 import '../theme/theme_mode_controller.dart';
 import '../widgets/book_card.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/counters.dart';
 import '../widgets/staggered_entrance.dart';
 import '../widgets/surfaces.dart';
 import '../widgets/text_prompt_dialog.dart';
@@ -92,6 +93,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final library = context.watch<LibraryProvider>();
+    // `books` monta, filtra e ordena a lista a cada chamada: uma vez por
+    // build, reaproveitada pelo cabeçalho e pelo corpo.
+    final books = library.isLoading ? const <BookWithProgress>[] : library.books;
 
     // Atalhos de teclado: a diferença mais direta entre um app de desktop e
     // um app de celular rodando numa janela.
@@ -102,7 +106,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       },
       child: Focus(
         autofocus: true,
-        child: GradientScaffold(
+        child: AppScaffold(
           body: SafeArea(
             child: Column(
               children: [
@@ -111,8 +115,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   searchFocus: _searchFocus,
                   onSearchChanged: library.setSearchQuery,
                   onCreate: _createBook,
+                  bookCount: library.isLoading ? null : books.length,
                 ),
-                Expanded(child: _buildBody(library)),
+                Expanded(child: _buildBody(library, books)),
               ],
             ),
           ),
@@ -121,13 +126,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildBody(LibraryProvider library) {
+  Widget _buildBody(LibraryProvider library, List<BookWithProgress> books) {
     if (library.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
-
-    // `books` monta e ordena a lista a cada chamada, então vale guardar.
-    final books = library.books;
 
     if (books.isEmpty) {
       return _EmptyState(
@@ -138,15 +140,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     return ContentColumn(
       child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(32, 8, 32, 40),
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          // Cartões maiores que os 280px anteriores: numa tela de desktop,
-          // cartões pequenos demais viram uma grade de ícones e desperdiçam
-          // o espaço que permitiria mostrar mais informação por livro.
-          maxCrossAxisExtent: 340,
-          mainAxisExtent: 176,
-          crossAxisSpacing: 20,
-          mainAxisSpacing: 20,
+          maxCrossAxisExtent: 330,
+          mainAxisExtent: 150,
+          // O espaço entre cartões é o que os separa agora que nenhum deles
+          // tem sombra — por isso é generoso, e igual nos dois eixos.
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
         ),
         itemCount: books.length,
         itemBuilder: (context, index) {
@@ -169,73 +170,91 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 }
 
-/// Barra superior da biblioteca. Substitui a [AppBar] + [FloatingActionButton]
-/// do layout anterior: no desktop, a ação principal mora na barra de
-/// ferramentas junto das outras, não flutuando sobre o canto da tela.
+/// Barra superior da biblioteca: faixa de largura total, cor de painel e uma
+/// linha de 1px embaixo — a moldura da janela, não um bloco flutuante.
+///
+/// A ação principal mora aqui, à direita, como um retângulo ancorado no
+/// fluxo. Um botão redondo flutuando sobre o canto inferior da tela é um
+/// padrão de celular: existe porque o polegar não alcança o topo.
 class _LibraryHeader extends StatelessWidget {
   final TextEditingController searchController;
   final FocusNode searchFocus;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onCreate;
+  final int? bookCount;
 
   const _LibraryHeader({
     required this.searchController,
     required this.searchFocus,
     required this.onSearchChanged,
     required this.onCreate,
+    required this.bookCount,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final surfaces = context.surfaces;
 
-    return ContentColumn(
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 20),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ShaderMask(
-                // O título é o único lugar do app onde o gradiente de acento
-                // aparece sobre texto — mantém a marca presente sem pintar
-                // o resto da interface.
-                shaderCallback: (bounds) => context.surfaces.accent.createShader(bounds),
-                child: Text(
-                  'Wroote',
-                  style: theme.textTheme.displayMedium?.copyWith(color: Colors.white),
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaces.panel,
+        border: Border(bottom: BorderSide(color: surfaces.hairline)),
+      ),
+      child: ContentColumn(
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 14),
+        child: Row(
+          children: [
+            Text('Wroote', style: theme.textTheme.headlineLarge),
+            const ToolbarSeparator(height: 18),
+            Text('Biblioteca', style: theme.textTheme.bodySmall),
+            if (bookCount != null && bookCount! > 0) ...[
+              const SizedBox(width: 10),
+              MonoText(
+                '${formatCount(bookCount!)} ${bookCount == 1 ? 'livro' : 'livros'}',
+                size: 11,
+                color: theme.textTheme.labelSmall?.color,
+              ),
+            ],
+            const Spacer(),
+            SizedBox(
+              width: 260,
+              child: TextField(
+                controller: searchController,
+                focusNode: searchFocus,
+                onChanged: onSearchChanged,
+                style: theme.textTheme.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: 'Buscar por título',
+                  prefixIcon: const Icon(Icons.search, size: 16),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
+                  // O atalho impresso dentro do campo, em mono: é a mesma
+                  // convenção dos menus de qualquer app de desktop.
+                  suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 6, right: 9),
+                    child: MonoText(
+                      'Ctrl+F',
+                      size: 10.5,
+                      color: theme.textTheme.labelSmall?.color,
+                    ),
+                  ),
                 ),
               ),
-              Text('Sua biblioteca', style: theme.textTheme.bodySmall),
-            ],
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 300,
-            child: TextField(
-              controller: searchController,
-              focusNode: searchFocus,
-              onChanged: onSearchChanged,
-              decoration: const InputDecoration(
-                hintText: 'Buscar por título…   (Ctrl+F)',
-                prefixIcon: Icon(Icons.search, size: 20),
-                isDense: true,
-              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          const _SoundToggle(),
-          const SizedBox(width: 4),
-          const _ThemeToggle(),
-          const SizedBox(width: 16),
-          AccentButton(
-            label: 'Novo livro',
-            icon: Icons.add,
-            onPressed: onCreate,
-            sound: UiSound.open,
-          ),
-        ],
+            const SizedBox(width: 10),
+            const _SoundToggle(),
+            const _ThemeToggle(),
+            const ToolbarSeparator(height: 18),
+            PrimaryButton(
+              label: 'Novo livro',
+              icon: Icons.add,
+              onPressed: onCreate,
+              sound: UiSound.open,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -250,7 +269,6 @@ class _SoundToggle extends StatelessWidget {
     return AppIconButton(
       icon: sounds.enabled ? Icons.volume_up_outlined : Icons.volume_off_outlined,
       tooltip: sounds.enabled ? 'Desligar sons' : 'Ligar sons',
-      size: 20,
       // O próprio `setEnabled` toca o som de confirmação quando liga; um
       // som aqui seria tocado antes da mudança e confundiria o feedback.
       sound: UiSound.toggle,
@@ -269,13 +287,14 @@ class _ThemeToggle extends StatelessWidget {
     return AppIconButton(
       icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
       tooltip: isDark ? 'Tema claro' : 'Tema escuro',
-      size: 20,
       sound: UiSound.toggle,
       onPressed: () => controller.toggle(context),
     );
   }
 }
 
+/// Estado vazio: texto e uma ação. Sem ilustração, sem círculo decorativo —
+/// a tela vazia de um editor deve parecer uma folha em branco.
 class _EmptyState extends StatelessWidget {
   final bool hasQuery;
   final VoidCallback onCreate;
@@ -292,27 +311,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                gradient: context.surfaces.card,
-                shape: BoxShape.circle,
-                border: Border.all(color: theme.colorScheme.outline),
-                boxShadow: context.surfaces.cardShadow,
-              ),
-              child: Icon(
-                hasQuery ? Icons.search_off_outlined : Icons.menu_book_outlined,
-                size: 40,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
             Text(
-              hasQuery ? 'Nenhum livro encontrado.' : 'Nenhum livro ainda.',
-              style: theme.textTheme.headlineSmall,
+              hasQuery ? 'Nenhum livro encontrado' : 'Nenhum livro ainda',
+              style: theme.textTheme.headlineLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               hasQuery
                   ? 'Tente outro termo de busca.'
@@ -321,15 +324,19 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (!hasQuery) ...[
-              const SizedBox(height: 24),
-              AccentButton(
-                label: 'Criar meu primeiro livro',
+              const SizedBox(height: 20),
+              PrimaryButton(
+                label: 'Criar o primeiro livro',
                 icon: Icons.add,
                 onPressed: onCreate,
                 sound: UiSound.open,
               ),
               const SizedBox(height: 12),
-              Text('ou pressione Ctrl+N', style: theme.textTheme.labelSmall),
+              MonoText(
+                'ou Ctrl+N',
+                size: 11,
+                color: theme.textTheme.labelSmall?.color,
+              ),
             ],
           ],
         ),

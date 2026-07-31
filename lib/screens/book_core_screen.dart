@@ -6,6 +6,7 @@ import '../services/sound_service.dart';
 import '../widgets/autosave_field.dart';
 import '../widgets/character_editor_card.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/counters.dart';
 import '../widgets/section_card.dart';
 import '../widgets/staggered_entrance.dart';
 import '../widgets/surfaces.dart';
@@ -37,7 +38,7 @@ class BookCoreScreen extends StatelessWidget {
 
         return ContentColumn(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(32, 28, 32, 48),
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -45,7 +46,7 @@ class BookCoreScreen extends StatelessWidget {
                   title: 'Núcleo do livro',
                   subtitle: 'O planejamento que sustenta a escrita',
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 if (twoColumns)
                   // Duas colunas independentes, cada uma com o seu próprio
                   // empilhamento. Alinhadas pelo topo para que a coluna mais
@@ -54,7 +55,7 @@ class BookCoreScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: _SectionStack(sections: narrative)),
-                      const SizedBox(width: 20),
+                      const SizedBox(width: 16),
                       Expanded(child: _SectionStack(sections: structure)),
                     ],
                   )
@@ -103,8 +104,9 @@ class BookCoreScreen extends StatelessWidget {
         icon: Icons.people_outline,
         trailing: [
           AppIconButton(
-            icon: Icons.person_add_alt_1_outlined,
+            icon: Icons.add,
             tooltip: 'Adicionar personagem',
+            size: 16,
             sound: UiSound.success,
             onPressed: () => provider.addCharacter(),
           ),
@@ -215,7 +217,7 @@ class _SectionStack extends StatelessWidget {
       children: [
         for (var i = 0; i < sections.length; i++)
           Padding(
-            padding: EdgeInsets.only(bottom: i == sections.length - 1 ? 0 : 20),
+            padding: EdgeInsets.only(bottom: i == sections.length - 1 ? 0 : 16),
             child: StaggeredEntrance(index: i, child: sections[i]),
           ),
       ],
@@ -262,10 +264,18 @@ class _PageEstimateStepper extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('$value', style: theme.textTheme.displayMedium),
+                // Mono: é uma medida, e o dígito tabular impede que o número
+                // dance de largura enquanto se aperta o botão.
+                MonoText(
+                  formatCount(value),
+                  size: 26,
+                  weight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
+                const SizedBox(height: 4),
                 Text(
                   value == 1 ? 'página' : 'páginas',
-                  style: theme.textTheme.labelMedium,
+                  style: theme.textTheme.labelSmall,
                 ),
               ],
             ),
@@ -283,7 +293,7 @@ class _PageEstimateStepper extends StatelessWidget {
       child: AppIconButton(
         icon: icon,
         tooltip: tooltip,
-        size: 20,
+        size: 16,
         sound: UiSound.toggle,
         onPressed: onTap,
       ),

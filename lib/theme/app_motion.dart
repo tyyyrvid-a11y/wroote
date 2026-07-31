@@ -4,42 +4,36 @@ import 'package:flutter/material.dart';
 /// as animações parecerem parte de um sistema só, em vez de um monte de
 /// `Duration(milliseconds: 300)` espalhado pelo código.
 ///
-/// A escala segue a lógica de UI de desktop: o cursor do mouse é preciso e
-/// rápido, então feedback direto (hover, press) precisa ser quase
-/// instantâneo — animação lenta em hover dá sensação de travamento.
+/// A escala inteira cabe entre 100 e 200ms, e nenhuma curva ultrapassa o
+/// valor final. Movimento com overshoot ("bounce") comunica brincadeira; um
+/// editor de texto precisa comunicar que a máquina respondeu na hora. Acima
+/// de ~200ms a transição deixa de ser feedback e vira espera.
 class AppMotion {
   AppMotion._();
 
   /// Hover, press, mudança de cor — reage "junto" com o cursor.
-  static const Duration instant = Duration(milliseconds: 90);
+  static const Duration instant = Duration(milliseconds: 110);
 
   /// Padrão para a maioria das transições de estado.
-  static const Duration fast = Duration(milliseconds: 160);
+  static const Duration fast = Duration(milliseconds: 150);
 
-  /// Expandir/recolher, troca de conteúdo.
-  static const Duration base = Duration(milliseconds: 240);
+  /// Expandir/recolher, troca de conteúdo, entradas.
+  static const Duration base = Duration(milliseconds: 190);
 
-  /// Transições de tela e entradas encenadas.
-  static const Duration slow = Duration(milliseconds: 380);
-
-  /// Desaceleração suave — o padrão para algo que entra ou se move.
+  /// Desaceleração simples: sai rápido, assenta sem passar do ponto.
   static const Curve enter = Curves.easeOutCubic;
-
-  /// Desaceleração acentuada, com um "assentar" mais longo no fim.
-  static const Curve emphasized = Curves.easeOutQuint;
 
   /// Para algo que sai de cena.
   static const Curve exit = Curves.easeInCubic;
 
-  /// Movimento com um leve exagero no fim, para elementos que "aparecem".
-  static const Curve spring = Curves.easeOutBack;
+  /// Atraso entre itens consecutivos numa entrada encenada (grade, lista).
+  /// Curto de propósito: o suficiente para a lista não piscar inteira de uma
+  /// vez, curto demais para alguém conseguir "assistir" à animação.
+  static const Duration stagger = Duration(milliseconds: 16);
 
-  /// Atraso entre itens consecutivos numa entrada encenada (grid, lista).
-  static const Duration stagger = Duration(milliseconds: 45);
-
-  /// Teto do atraso encenado: sem isso, o 40º card da biblioteca demoraria
-  /// quase dois segundos para aparecer.
-  static const Duration staggerCap = Duration(milliseconds: 400);
+  /// Teto do atraso encenado: sem isso, o 40º card da biblioteca esperaria
+  /// meio segundo para aparecer.
+  static const Duration staggerCap = Duration(milliseconds: 100);
 
   /// Calcula o atraso de entrada do item [index] respeitando o teto.
   static Duration staggerDelay(int index) {
