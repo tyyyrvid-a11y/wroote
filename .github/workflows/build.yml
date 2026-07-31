@@ -30,8 +30,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # --no-fatal-infos: erro e warning reprovam, info não. Sem isso o job
+      # reprova por `prefer_const_constructors` espalhado pelo código —
+      # ruído de estilo que esconderia o que este job existe para pegar.
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
   build:
     name: ${{ matrix.artifact_name }}
@@ -69,7 +72,10 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake
+          # GStreamer é requisito do audioplayers_linux: sem os headers, o
+          # build nativo falha desde que os sons entraram no app.
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
