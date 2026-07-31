@@ -1,13 +1,38 @@
 name: Build desktop
 
 on:
+  # Qualquer branch: o desenvolvimento acontece sem Flutter SDK na máquina
+  # local, então o CI é o único lugar onde o código é de fato compilado —
+  # esperar o merge na main para descobrir um erro de compilação é tarde
+  # demais.
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
   workflow_dispatch: {}
 
 jobs:
+  # Roda em ~2 minutos e pega erro de compilação Dart muito antes dos três
+  # builds de release, que levam ~15.
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
   build:
     name: ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
