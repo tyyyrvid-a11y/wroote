@@ -158,11 +158,34 @@ class _ToolbarBar extends StatelessWidget {
 /// É a mudança que mais separa esta tela de um editor de celular esticado:
 /// texto corrido ocupando 2000px de largura é impossível de ler, porque o
 /// olho perde a linha no caminho de volta.
-class _WritingSurface extends StatelessWidget {
+///
+/// É um [StatefulWidget] por um motivo só, e não é decorativo: o
+/// [FocusNode] e o [ScrollController] do editor precisam sobreviver aos
+/// rebuilds. `QuillEditor.basic()` cria os dois na hora quando não recebe
+/// os seus — e como o provider notifica a cada mudança de seleção, cada
+/// clique disparava um rebuild que trocava o nó de foco por um novo. O
+/// cursor sumia no mesmo frame em que aparecia, e a página ficava
+/// impossível de escrever.
+class _WritingSurface extends StatefulWidget {
   final EditorProvider provider;
   final String? pageId;
 
   const _WritingSurface({required this.provider, required this.pageId});
+
+  @override
+  State<_WritingSurface> createState() => _WritingSurfaceState();
+}
+
+class _WritingSurfaceState extends State<_WritingSurface> {
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,17 +215,21 @@ class _WritingSurface extends StatelessWidget {
                 bodySmall: serifBody.copyWith(fontSize: 14),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(48, 36, 48, 8),
-              child: QuillEditor.basic(
-                key: ValueKey('editor-$pageId'),
-                controller: provider.controller,
-                config: const QuillEditorConfig(
-                  padding: EdgeInsets.only(bottom: 24),
-                  placeholder: 'Comece a escrever…',
-                  scrollable: true,
-                  expands: true,
-                ),
+            // As margens da folha são padding *do editor*, não um Padding
+            // em volta dele: assim o clique na margem também cai dentro da
+            // área editável e posiciona o cursor, como em qualquer
+            // processador de texto. Com um Padding externo, os 48px de cada
+            // lado eram zona morta.
+            child: QuillEditor(
+              key: ValueKey('editor-${widget.pageId}'),
+              controller: widget.provider.controller,
+              focusNode: _focusNode,
+              scrollController: _scrollController,
+              config: const QuillEditorConfig(
+                padding: EdgeInsets.fromLTRB(48, 36, 48, 40),
+                placeholder: 'Comece a escrever…',
+                scrollable: true,
+                expands: true,
               ),
             ),
           ),
