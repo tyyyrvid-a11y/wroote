@@ -104,3 +104,123 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: warn
+
+      # --- Instalador do Windows: WrooteSetup.exe via Inno Setup ---
+      #
+      # A pasta de Release sozinha (o artefato acima) não é algo que se
+      # entrega a alguém: é o .exe ao lado de uma dúzia de DLLs soltas, sem
+      # atalho, sem desinstalador. Isso empacota tudo isso num instalador
+      # de duplo-clique único.
+      - name: Read app version from pubspec.yaml
+        if: matrix.platform == 'windows'
+        id: appversion
+        shell: pwsh
+        run: |
+          $match = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)'
+          $version = $match.Matches[0].Groups[1].Value.Trim()
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install Inno Setup
+        if: matrix.platform == 'windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          iscc "/DMyAppVersion=${{ steps.appversion.outputs.version }}" installer\windows\wroote.iss
+
+      - name: Upload Windows installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-windows-installer
+          path: build/installer/WrooteSetup.exe
+          if-no-files-found: error
+
+      # --- Instalador do macOS: Wroote.dmg ---
+      #
+      # `hdiutil` já vem no macOS, então isso não precisa de nenhuma
+      # ferramenta de terceiros. O atalho para /Applications dentro da
+      # imagem é o "instalador" padrão de qualquer app Mac: arrastar o
+      # ícone para a pasta ao lado.
+      - name: Package macOS app into a DMG
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -n1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Nenhum .app encontrado em build/macos/Build/Products/Release" >&2
+            exit 1
+          fi
+          STAGING="build/dmg_staging"
+          mkdir -p "$STAGING"
+          cp -R "$APP_PATH" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "Wroote" -srcfolder "$STAGING" -ov -format UDZO build/Wroote.dmg
+
+      - name: Upload macOS installer
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-macos-installer
+          path: build/Wroote.dmg
+          if-no-files-found: error
+
+      # --- Instalador do Linux: Wroote-x86_64.AppImage ---
+      #
+      # Um AppImage é um único arquivo executável, sem instalação — o mais
+      # próximo que o Linux tem de "baixou, deu duplo-clique, rodou".
+      # appimagetool exige um ícone; sem um próprio (assets/icon está vazio
+      # hoje), o quadrado sólido abaixo é só o mínimo para o build passar —
+      # trocar por um ícone de verdade fica para quando houver um.
+      - name: Package Linux AppImage
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          APPDIR="build/AppDir"
+          mkdir -p "$APPDIR/app"
+          cp -R "$BUNDLE_DIR"/. "$APPDIR/app/"
+
+          sudo apt-get install -y imagemagick
+          convert -size 256x256 xc:"#2B5C63" "$APPDIR/wroote.png"
+
+          # printf em vez de heredoc: dentro de um bloco YAML indentado, o
+          # delimitador de fechamento de um heredoc precisaria ficar na
+          # coluna 0 para o bash reconhecer, e a coluna 0 quebraria a
+          # indentação mínima que o próprio `run: |` exige. Com printf, a
+          # indentação do comando não vaza para o conteúdo do arquivo.
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Type=Application' \
+            'Name=Wroote' \
+            'Exec=wroote' \
+            'Icon=wroote' \
+            'Categories=Office;WordProcessor;' \
+            > "$APPDIR/wroote.desktop"
+
+          # `#!/bin/bash` precisa ser o primeiro byte do arquivo, sem espaço
+          # antes — senão o kernel não reconhece o shebang.
+          printf '%s\n' \
+            '#!/bin/bash' \
+            'HERE="$(dirname "$(readlink -f "${0}")")"' \
+            'cd "$HERE/app"' \
+            'exec "./wroote" "$@"' \
+            > "$APPDIR/AppRun"
+          chmod +x "$APPDIR/AppRun"
+
+          curl -L -o appimagetool.AppImage \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          # --appimage-extract-and-run: os runners do GitHub Actions não têm
+          # FUSE, que é como um AppImage normalmente se monta sozinho.
+          ./appimagetool.AppImage --appimage-extract-and-run "$APPDIR" build/Wroote-x86_64.AppImage
+
+      - name: Upload Linux installer
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-linux-installer
+          path: build/Wroote-x86_64.AppImage
+          if-no-files-found: error
