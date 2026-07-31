@@ -95,6 +95,32 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # --- Ícone do app: assets/icon/icon.png (3000×3000) ---
+      #
+      # As pastas nativas (windows/, macos/, linux/) não são versionadas —
+      # o passo acima as recria do zero a cada execução, sempre com o
+      # ícone padrão do Flutter. Por isso o ícone é aplicado *depois* de
+      # gerar essas pastas e *antes* de compilar: senão o `flutter create`
+      # apagaria a troca, ou o build usaria o padrão antigo.
+      - name: Set Windows app icon
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          magick convert assets/icon/icon.png -define icon:auto-resize=256,128,64,48,32,16 windows/runner/resources/app_icon.ico
+
+      - name: Set macOS app icon
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          ICONSET="macos/Runner/Assets.xcassets/AppIcon.appiconset"
+          # Os nomes de arquivo são fixos pelo Contents.json que o
+          # `flutter create` gera — cada tamanho reaparece em mais de uma
+          # entrada (1x de um, 2x do outro), então são só 7 arquivos para
+          # cobrir as 10 combinações de tamanho/escala do catálogo.
+          for size in 16 32 64 128 256 512 1024; do
+            sips -z "$size" "$size" assets/icon/icon.png --out "$ICONSET/app_icon_$size.png" >/dev/null
+          done
+
       - name: Build ${{ matrix.platform }} release
         run: ${{ matrix.build_cmd }}
 
@@ -171,9 +197,8 @@ jobs:
       #
       # Um AppImage é um único arquivo executável, sem instalação — o mais
       # próximo que o Linux tem de "baixou, deu duplo-clique, rodou".
-      # appimagetool exige um ícone; sem um próprio (assets/icon está vazio
-      # hoje), o quadrado sólido abaixo é só o mínimo para o build passar —
-      # trocar por um ícone de verdade fica para quando houver um.
+      # appimagetool exige um ícone quadrado; o de origem é 3000×3000, então
+      # reduz para 256×256, o tamanho que a convenção do AppImage espera.
       - name: Package Linux AppImage
         if: matrix.platform == 'linux'
         run: |
@@ -184,7 +209,7 @@ jobs:
           cp -R "$BUNDLE_DIR"/. "$APPDIR/app/"
 
           sudo apt-get install -y imagemagick
-          convert -size 256x256 xc:"#2B5C63" "$APPDIR/wroote.png"
+          convert assets/icon/icon.png -resize 256x256 "$APPDIR/wroote.png"
 
           # printf em vez de heredoc: dentro de um bloco YAML indentado, o
           # delimitador de fechamento de um heredoc precisaria ficar na
