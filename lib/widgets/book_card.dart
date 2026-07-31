@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../services/library_provider.dart';
-import '../theme/app_theme.dart';
+import 'counters.dart';
+import 'surfaces.dart';
 
+/// Cartão de um livro na biblioteca.
+///
+/// A hierarquia dentro do cartão é a mesma do app inteiro: o nome do livro é
+/// o único elemento serifado e o único em peso alto; tudo abaixo dele é
+/// medida, e medida é mono e apagada.
 class BookCard extends StatelessWidget {
   final BookWithProgress entry;
   final VoidCallback onTap;
@@ -20,69 +26,100 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final semantic = context.semanticColors;
     final book = entry.book;
+    final percent = (entry.progress * 100).round();
+    final faint = theme.textTheme.labelSmall?.color;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: semantic.border),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 18, 12, 18),
-          child: Column(
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(18, 14, 10, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      book.title,
-                      style: theme.textTheme.titleLarge,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    book.title,
+                    style: theme.textTheme.titleLarge,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz),
-                    color: semantic.surfaceRaised,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-                    onSelected: (value) {
-                      if (value == 'rename') onRename();
-                      if (value == 'delete') onDelete();
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'rename', child: Text('Renomear')),
-                      PopupMenuItem(value: 'delete', child: Text('Excluir')),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${entry.wordCount} palavra${entry.wordCount == 1 ? '' : 's'}',
-                style: theme.textTheme.bodySmall,
-              ),
-              const Spacer(),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: entry.progress,
-                  minHeight: 6,
-                  backgroundColor: semantic.softAccentBackground,
-                  valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
                 ),
               ),
+              const SizedBox(width: 4),
+              _CardMenu(onRename: onRename, onDelete: onDelete),
             ],
           ),
-        ),
+          const SizedBox(height: 6),
+          MonoText(
+            '${formatCount(entry.wordCount)} ${entry.wordCount == 1 ? 'palavra' : 'palavras'}'
+            '${entry.pageEstimate > 0 ? '  ·  meta ${entry.pageEstimate} pág.' : ''}',
+            size: 11,
+            color: faint,
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              children: [
+                Expanded(child: ProgressLine(value: entry.progress)),
+                const SizedBox(width: 10),
+                MonoText('$percent%', size: 11, color: faint),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// Menu de opções do cartão. O botão vence o `onTap` do cartão na arena de
+/// gestos por ser o alvo mais interno, então clicar aqui abre o menu em vez
+/// de abrir o livro.
+class _CardMenu extends StatelessWidget {
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+
+  const _CardMenu({required this.onRename, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_horiz, size: 17),
+      tooltip: 'Opções',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 160),
+      position: PopupMenuPosition.under,
+      onSelected: (value) {
+        if (value == 'rename') onRename();
+        if (value == 'delete') onDelete();
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'rename',
+          height: 34,
+          child: Row(children: [
+            Icon(Icons.drive_file_rename_outline, size: 16),
+            SizedBox(width: 10),
+            Text('Renomear'),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          height: 34,
+          child: Row(children: [
+            Icon(Icons.delete_outline, size: 16, color: theme.colorScheme.error),
+            const SizedBox(width: 10),
+            Text('Excluir', style: TextStyle(color: theme.colorScheme.error)),
+          ]),
+        ),
+      ],
     );
   }
 }

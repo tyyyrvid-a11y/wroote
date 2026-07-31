@@ -1,13 +1,41 @@
 name: Build desktop
 
 on:
+  # Qualquer branch: o desenvolvimento acontece sem Flutter SDK na máquina
+  # local, então o CI é o único lugar onde o código é de fato compilado —
+  # esperar o merge na main para descobrir um erro de compilação é tarde
+  # demais.
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
   workflow_dispatch: {}
 
 jobs:
+  # Roda em ~2 minutos e pega erro de compilação Dart muito antes dos três
+  # builds de release, que levam ~15.
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # --no-fatal-infos: erro e warning reprovam, info não. Sem isso o job
+      # reprova por `prefer_const_constructors` espalhado pelo código —
+      # ruído de estilo que esconderia o que este job existe para pegar.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
   build:
     name: ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
@@ -44,7 +72,10 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake
+          # GStreamer é requisito do audioplayers_linux: sem os headers, o
+          # build nativo falha desde que os sons entraram no app.
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -64,6 +95,32 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # --- Ícone do app: assets/icon/icon.png (3000×3000) ---
+      #
+      # As pastas nativas (windows/, macos/, linux/) não são versionadas —
+      # o passo acima as recria do zero a cada execução, sempre com o
+      # ícone padrão do Flutter. Por isso o ícone é aplicado *depois* de
+      # gerar essas pastas e *antes* de compilar: senão o `flutter create`
+      # apagaria a troca, ou o build usaria o padrão antigo.
+      - name: Set Windows app icon
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          magick convert assets/icon/icon.png -define icon:auto-resize=256,128,64,48,32,16 windows/runner/resources/app_icon.ico
+
+      - name: Set macOS app icon
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          ICONSET="macos/Runner/Assets.xcassets/AppIcon.appiconset"
+          # Os nomes de arquivo são fixos pelo Contents.json que o
+          # `flutter create` gera — cada tamanho reaparece em mais de uma
+          # entrada (1x de um, 2x do outro), então são só 7 arquivos para
+          # cobrir as 10 combinações de tamanho/escala do catálogo.
+          for size in 16 32 64 128 256 512 1024; do
+            sips -z "$size" "$size" assets/icon/icon.png --out "$ICONSET/app_icon_$size.png" >/dev/null
+          done
+
       - name: Build ${{ matrix.platform }} release
         run: ${{ matrix.build_cmd }}
 
@@ -73,3 +130,122 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: warn
+
+      # --- Instalador do Windows: WrooteSetup.exe via Inno Setup ---
+      #
+      # A pasta de Release sozinha (o artefato acima) não é algo que se
+      # entrega a alguém: é o .exe ao lado de uma dúzia de DLLs soltas, sem
+      # atalho, sem desinstalador. Isso empacota tudo isso num instalador
+      # de duplo-clique único.
+      - name: Read app version from pubspec.yaml
+        if: matrix.platform == 'windows'
+        id: appversion
+        shell: pwsh
+        run: |
+          $match = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)'
+          $version = $match.Matches[0].Groups[1].Value.Trim()
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install Inno Setup
+        if: matrix.platform == 'windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          iscc "/DMyAppVersion=${{ steps.appversion.outputs.version }}" installer\windows\wroote.iss
+
+      - name: Upload Windows installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-windows-installer
+          path: build/installer/WrooteSetup.exe
+          if-no-files-found: error
+
+      # --- Instalador do macOS: Wroote.dmg ---
+      #
+      # `hdiutil` já vem no macOS, então isso não precisa de nenhuma
+      # ferramenta de terceiros. O atalho para /Applications dentro da
+      # imagem é o "instalador" padrão de qualquer app Mac: arrastar o
+      # ícone para a pasta ao lado.
+      - name: Package macOS app into a DMG
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -n1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Nenhum .app encontrado em build/macos/Build/Products/Release" >&2
+            exit 1
+          fi
+          STAGING="build/dmg_staging"
+          mkdir -p "$STAGING"
+          cp -R "$APP_PATH" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "Wroote" -srcfolder "$STAGING" -ov -format UDZO build/Wroote.dmg
+
+      - name: Upload macOS installer
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-macos-installer
+          path: build/Wroote.dmg
+          if-no-files-found: error
+
+      # --- Instalador do Linux: Wroote-x86_64.AppImage ---
+      #
+      # Um AppImage é um único arquivo executável, sem instalação — o mais
+      # próximo que o Linux tem de "baixou, deu duplo-clique, rodou".
+      # appimagetool exige um ícone quadrado; o de origem é 3000×3000, então
+      # reduz para 256×256, o tamanho que a convenção do AppImage espera.
+      - name: Package Linux AppImage
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          APPDIR="build/AppDir"
+          mkdir -p "$APPDIR/app"
+          cp -R "$BUNDLE_DIR"/. "$APPDIR/app/"
+
+          sudo apt-get install -y imagemagick
+          convert assets/icon/icon.png -resize 256x256 "$APPDIR/wroote.png"
+
+          # printf em vez de heredoc: dentro de um bloco YAML indentado, o
+          # delimitador de fechamento de um heredoc precisaria ficar na
+          # coluna 0 para o bash reconhecer, e a coluna 0 quebraria a
+          # indentação mínima que o próprio `run: |` exige. Com printf, a
+          # indentação do comando não vaza para o conteúdo do arquivo.
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Type=Application' \
+            'Name=Wroote' \
+            'Exec=wroote' \
+            'Icon=wroote' \
+            'Categories=Office;WordProcessor;' \
+            > "$APPDIR/wroote.desktop"
+
+          # `#!/bin/bash` precisa ser o primeiro byte do arquivo, sem espaço
+          # antes — senão o kernel não reconhece o shebang.
+          printf '%s\n' \
+            '#!/bin/bash' \
+            'HERE="$(dirname "$(readlink -f "${0}")")"' \
+            'cd "$HERE/app"' \
+            'exec "./wroote" "$@"' \
+            > "$APPDIR/AppRun"
+          chmod +x "$APPDIR/AppRun"
+
+          curl -L -o appimagetool.AppImage \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          # --appimage-extract-and-run: os runners do GitHub Actions não têm
+          # FUSE, que é como um AppImage normalmente se monta sozinho.
+          ./appimagetool.AppImage --appimage-extract-and-run "$APPDIR" build/Wroote-x86_64.AppImage
+
+      - name: Upload Linux installer
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wroote-linux-installer
+          path: build/Wroote-x86_64.AppImage
+          if-no-files-found: error

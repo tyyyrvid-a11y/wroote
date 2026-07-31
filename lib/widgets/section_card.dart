@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import 'surfaces.dart';
 
 /// Cartão usado para cada seção do Núcleo do Livro (sinopse, conflito
 /// central, sinopses por ato, etc.).
+///
+/// O ícone é monocromático e do mesmo tamanho dos demais ícones do app —
+/// sem o quadrado tingido de acento que fazia cada seção parecer um recurso
+/// anunciado numa página de vendas.
 class SectionCard extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -23,20 +27,22 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: context.semanticColors.border),
-      ),
+
+    return AppCard(
+      // Sem `onTap`: o cartão é um contêiner de formulário, então não pode
+      // se comportar como algo clicável — nem cursor de mão, nem reação ao
+      // hover, que atrapalhariam quem está digitando dentro dele.
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(icon, size: 16, color: theme.textTheme.labelSmall?.color),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/sound_service.dart';
+import 'surfaces.dart';
+
 /// Diálogo genérico com um único campo de texto — usado para criar e
 /// renomear livros, capítulos e páginas.
 class TextPromptDialog extends StatefulWidget {
@@ -22,8 +25,9 @@ class TextPromptDialog extends StatefulWidget {
     required String label,
     String initialValue = '',
     String confirmLabel = 'Salvar',
-  }) {
-    return showDialog<String>(
+  }) async {
+    context.sounds.play(UiSound.open);
+    final result = await showDialog<String>(
       context: context,
       builder: (_) => TextPromptDialog(
         title: title,
@@ -32,6 +36,10 @@ class TextPromptDialog extends StatefulWidget {
         confirmLabel: confirmLabel,
       ),
     );
+    // Sem valor = o usuário desistiu. Confirmar deixa o som para quem
+    // chamou, que sabe se criou, renomeou ou nada aconteceu.
+    if (context.mounted && result == null) context.sounds.play(UiSound.close);
+    return result;
   }
 
   @override
@@ -62,20 +70,39 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(labelText: widget.label),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
+      content: SizedBox(
+        width: 340,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: widget.label),
+          onSubmitted: (_) => _submit(),
         ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: Text(widget.confirmLabel),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+      actions: [
+        // Um Row só, não dois itens soltos na lista `actions`: ver o
+        // comentário equivalente em ConfirmDialog — é o que evita o
+        // OverflowBar do Flutter esticar o "Cancelar" para a largura
+        // inteira do diálogo.
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SecondaryButton(
+              label: 'Cancelar',
+              sound: null, // O `close` toca ao fechar o diálogo.
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            const SizedBox(width: 10),
+            PrimaryButton(
+              label: widget.confirmLabel,
+              onPressed: _submit,
+              // Quem chamou o diálogo toca o som do resultado.
+              sound: null,
+            ),
+          ],
         ),
       ],
     );
