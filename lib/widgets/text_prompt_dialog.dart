@@ -80,20 +80,29 @@ class _TextPromptDialogState extends State<TextPromptDialog> {
         ),
       ),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       actions: [
-        SecondaryButton(
-          label: 'Cancelar',
-          sound: null, // O `close` toca ao fechar o diálogo.
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        const SizedBox(width: 8),
-        PrimaryButton(
-          label: widget.confirmLabel,
-          onPressed: _submit,
-          // Quem chamou o diálogo toca o som do resultado.
-          sound: null,
+        // Um Row só, não dois itens soltos na lista `actions`: ver o
+        // comentário equivalente em ConfirmDialog — é o que evita o
+        // OverflowBar do Flutter esticar o "Cancelar" para a largura
+        // inteira do diálogo.
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SecondaryButton(
+              label: 'Cancelar',
+              sound: null, // O `close` toca ao fechar o diálogo.
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            const SizedBox(width: 10),
+            PrimaryButton(
+              label: widget.confirmLabel,
+              onPressed: _submit,
+              // Quem chamou o diálogo toca o som do resultado.
+              sound: null,
+            ),
+          ],
         ),
       ],
     );

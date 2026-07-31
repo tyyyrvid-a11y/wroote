@@ -21,23 +21,37 @@ class ConfirmDialog {
           // Sem ícone de alerta: quem abre um diálogo de exclusão já sabe
           // que é sério. O aviso está no texto e na cor do botão.
           title: Text(title),
-          content: Text(message),
-          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          // Largura fixa, e não a largura natural da mensagem: sem isso um
+          // "Excluir 'A'?" de mensagem curta gera um diálogo estreito
+          // demais, e cada diálogo do app tem um tamanho diferente.
+          content: SizedBox(width: 340, child: Text(message)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
           actions: [
-            SecondaryButton(
-              label: 'Cancelar',
-              sound: null, // O `close` toca ao fechar o diálogo.
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-            ),
-            const SizedBox(width: 8),
-            PrimaryButton(
-              label: confirmLabel,
-              destructive: true,
-              // Quem chamou o diálogo toca o som da ação concluída.
-              sound: null,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
+            // Um Row só, não dois itens soltos na lista `actions`: o
+            // Flutter embrulha essa lista num OverflowBar que decide, por
+            // conta própria, se os botões cabem lado a lado — e com um
+            // título curto essa conta erra e empilha os dois, esticando o
+            // primeiro para a largura inteira do diálogo. Um único filho
+            // não deixa essa decisão acontecer.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(
+                  label: 'Cancelar',
+                  sound: null, // O `close` toca ao fechar o diálogo.
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                ),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: confirmLabel,
+                  destructive: true,
+                  // Quem chamou o diálogo toca o som da ação concluída.
+                  sound: null,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                ),
+              ],
             ),
           ],
         );
